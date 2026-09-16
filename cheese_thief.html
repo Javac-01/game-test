@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cheese Thief 🧀</title>
+<!-- Firebase via CDN (compat version — no modules needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{--bg:#1a1208;--surface:#2a1f0e;--surface2:#3a2d1a;--gold:#f5c842;--gold2:#e8a020;--red:#c0392b;--green:#27ae60;--purple:#8e44ad;--text:#f0ddb0;--muted:#9a8060;--radius:16px}
+  body{background:var(--bg);color:var(--text);font-family:'Georgia',serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px}
+  h1{font-size:2.2rem;color:var(--gold);text-shadow:0 2px 8px #0008}
+  h2{font-size:1.4rem;color:var(--gold2);margin-bottom:12px}
+  h3{font-size:1.1rem;color:var(--cream);margin-bottom:8px}
+  .screen{display:none;width:100%;max-width:520px;flex-direction:column;align-items:center;gap:16px}
+  .screen.active{display:flex}
+  .screen.gm-wide{max-width:780px}
+  .card{background:var(--surface);border:2px solid var(--surface2);border-radius:var(--radius);padding:24px;width:100%;text-align:center}
+  .card.glow{border-color:var(--gold);box-shadow:0 0 20px #f5c84240}
+  .card.gm{border-color:var(--purple);box-shadow:0 0 16px #8e44ad30}
+  input,select{width:100%;padding:12px 16px;border-radius:10px;border:2px solid var(--surface2);background:var(--bg);color:var(--text);font-size:1rem;font-family:inherit;outline:none}
+  input:focus,select:focus{border-color:var(--gold2)}
+  .btn{display:inline-block;padding:14px 28px;border-radius:12px;border:none;font-size:1rem;font-family:inherit;font-weight:bold;cursor:pointer;transition:transform .08s,opacity .08s;width:100%;margin-top:4px;-webkit-tap-highlight-color:transparent;user-select:none}
+  .btn:active{transform:scale(0.97);opacity:.85}
+  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+  .btn-gold{background:var(--gold);color:#1a1208}
+  .btn-gold:hover:not(:disabled){background:var(--gold2)}
+  .btn-outline{background:transparent;color:var(--gold);border:2px solid var(--gold)}
+  .btn-outline:hover:not(:disabled){background:var(--gold);color:#1a1208}
+  .btn-purple{background:var(--purple);color:#fff}
+  .room-code{font-size:3rem;font-weight:bold;letter-spacing:10px;color:var(--gold);text-shadow:0 0 20px #f5c84260}
+  .player-list{list-style:none;width:100%}
+  .player-list li{padding:10px 14px;margin:4px 0;background:var(--surface2);border-radius:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .badge{font-size:.75rem;padding:2px 8px;border-radius:20px;font-weight:bold}
+  .badge-ready{background:var(--green);color:#fff}
+  .badge-wait{background:var(--muted);color:#fff}
+  .emoji-big{font-size:4rem;margin:8px 0}
+  .dice-wrap{display:flex;gap:12px;justify-content:center;margin:16px 0}
+  .die{width:72px;height:72px;background:#f5e6c8;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:2.2rem;color:#1a1208;border:3px solid var(--gold);box-shadow:0 4px 12px #0006}
+  .die.rolling{animation:roll .5s ease-in-out}
+  @keyframes roll{0%,100%{transform:rotate(0)}25%{transform:rotate(-15deg)}75%{transform:rotate(15deg)}}
+  .role-card{border-radius:20px;padding:32px 24px;width:100%;text-align:center}
+  .role-thief{background:linear-gradient(135deg,#2c0a0a,#5a1010);border:3px solid #c0392b}
+  .role-follower{background:linear-gradient(135deg,#2a1040,#4a1a70);border:3px solid #8e44ad}
+  .role-villager{background:linear-gradient(135deg,#0a1f0a,#1a4a1a);border:3px solid #27ae60}
+  .role-title{font-size:1.8rem;font-weight:bold;margin:8px 0}
+  .role-thief .role-title{color:#ff6b6b}
+  .role-follower .role-title{color:#c39bd3}
+  .role-villager .role-title{color:#82e0aa}
+  .wake-badge{display:inline-block;background:var(--gold);color:#1a1208;font-weight:bold;font-size:1.1rem;padding:6px 16px;border-radius:20px;margin-top:10px}
+  .night-clock{font-size:5rem;font-weight:bold;color:var(--gold);text-shadow:0 0 30px #f5c84280;line-height:1}
+  .night-msg{font-size:1.3rem;padding:16px;border-radius:14px;margin:8px 0;font-weight:bold}
+  .eyes-open{background:#1a3a1a;border:2px solid var(--green);color:#82e0aa}
+  .eyes-closed{background:#1a1a2e;border:2px solid var(--muted);color:var(--muted)}
+  .progress-bar{width:100%;height:10px;background:var(--surface2);border-radius:4px;overflow:hidden}
+  .progress-fill{height:100%;background:var(--gold);border-radius:4px;transition:width .5s linear}
+  .vote-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+  .vote-btn{padding:16px 8px;border-radius:12px;border:2px solid var(--surface2);background:var(--surface2);color:var(--text);font-size:.95rem;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .vote-btn:active{transform:scale(0.96)}
+  .vote-btn:hover{border-color:var(--gold2)}
+  .vote-btn.selected{border-color:var(--gold);background:#f5c84220;color:var(--gold);font-weight:bold}
+  .vote-btn:disabled{opacity:.5;cursor:not-allowed}
+  .result-bar-wrap{width:100%;margin:6px 0}
+  .result-bar-label{display:flex;justify-content:space-between;font-size:.9rem;margin-bottom:4px}
+  .result-bar{height:22px;background:var(--surface2);border-radius:6px;overflow:hidden}
+  .result-bar-fill{height:100%;border-radius:6px;transition:width 1s ease}
+  .winner-banner{font-size:1.3rem;font-weight:bold;padding:16px;border-radius:14px;margin:4px 0;width:100%;text-align:center}
+  .winner-v{background:#0a2e0a;border:2px solid var(--green);color:#82e0aa}
+  .winner-t{background:#2e0a0a;border:2px solid var(--red);color:#ff9999}
+  .divider{width:100%;height:1px;background:var(--surface2);margin:4px 0}
+  .muted{color:var(--muted);font-size:.9rem}
+  .tip{font-size:.85rem;color:var(--muted);font-style:italic}
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--gold);color:#1a1208;padding:10px 24px;border-radius:30px;font-weight:bold;font-size:.95rem;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;white-space:nowrap}
+  #toast.show{opacity:1}
+  .status-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;flex-shrink:0}
+  .dot-green{background:var(--green)}.dot-wait{background:var(--muted)}
+  .interval-row{display:flex;align-items:center;gap:10px;width:100%}
+  .interval-row label{flex:1;font-size:.95rem}
+  .interval-row select{flex:0 0 130px;width:130px}
+  .spinner{display:inline-block;width:16px;height:16px;border:3px solid #f5c84240;border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .gm-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%}
+  .gm-phase{font-size:1rem;font-weight:bold;padding:6px 14px;border-radius:20px;display:inline-block;margin-bottom:8px}
+  .phase-lobby{background:var(--surface2);color:var(--muted)}
+  .phase-night{background:#0a0a2a;color:var(--gold)}
+  .phase-day{background:#2a1a00;color:#ffc060}
+  .phase-voting{background:#1a0a2a;color:#d0a0ff}
+  .phase-results{background:#0a2a0a;color:#80ff80}
+  .gm-night-display{text-align:center;padding:20px}
+  .gm-clock{font-size:6rem;font-weight:bold;color:var(--gold);text-shadow:0 0 40px #f5c84260;line-height:1}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+
+<!-- HOME -->
+<div class="screen active" id="s-home">
+  <div style="text-align:center"><div style="font-size:4rem">🧀</div><h1>Cheese Thief</h1><p class="muted" style="margin-top:6px">A social deduction game for 4–8 mice</p></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:10px">
+    <button class="btn btn-purple" onclick="showScreen('s-create')">🎮 Host (GM Screen)</button>
+    <button class="btn btn-gold" onclick="showScreen('s-join')">🐭 Join as Player</button>
+  </div>
+</div>
+
+<!-- CREATE -->
+<div class="screen" id="s-create">
+  <div style="text-align:center"><h2>🎮 Host a Game</h2><p class="muted">You will be the Game Master</p></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:12px">
+    <div><h3>Your Name</h3><input id="host-name" type="text" placeholder="e.g. Mayor Mouse" maxlength="20"></div>
+    <div class="divider"></div>
+    <div class="interval-row"><label>⏱ Night interval</label><select id="interval-select"><option value="15" selected>15 seconds</option><option value="20">20 seconds</option><option value="30">30 seconds</option><option value="45">45 seconds</option></select></div>
+    <div class="divider"></div>
+    <button class="btn btn-purple" onclick="createRoom()">Create Room 🎮</button>
+    <button class="btn btn-outline" onclick="showScreen('s-home')">← Back</button>
+  </div>
+</div>
+
+<!-- JOIN -->
+<div class="screen" id="s-join">
+  <div style="text-align:center"><h2>🚪 Join a Game</h2></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:12px">
+    <div><h3>Room Code</h3><input id="join-code" type="text" placeholder="e.g. BRIE" maxlength="4" style="text-transform:uppercase;letter-spacing:6px;font-size:1.4rem;text-align:center" oninput="this.value=this.value.toUpperCase()"></div>
+    <div><h3>Your Name</h3><input id="join-name" type="text" placeholder="e.g. Squeaky" maxlength="20"></div>
+    <button class="btn btn-gold" onclick="joinRoom()">Join Game 🐭</button>
+    <button class="btn btn-outline" onclick="showScreen('s-home')">← Back</button>
+  </div>
+</div>
+
+<!-- GM LOBBY -->
+<div class="screen gm-wide" id="s-gm-lobby">
+  <div style="text-align:center"><span class="gm-phase phase-lobby">🎮 GM VIEW — LOBBY</span><h2>Share this code with your players</h2><div class="room-code" id="gm-display-code">----</div><p class="muted" style="margin-top:4px">Players open this page on their device and click "Join as Player"</p></div>
+  <div class="gm-grid">
+    <div class="card gm"><h3>Players (<span id="gm-player-count">0</span>/8)</h3><ul class="player-list" id="gm-lobby-list"></ul></div>
+    <div class="card" style="display:flex;flex-direction:column;gap:12px">
+      <h3>Settings</h3>
+      <div class="interval-row" style="flex-direction:column;align-items:flex-start;gap:6px"><label>⏱ Night interval</label><select id="gm-interval" style="width:100%" onchange="updateInterval()"><option value="15" selected>15 seconds</option><option value="20">20 seconds</option><option value="30">30 seconds</option><option value="45">45 seconds</option></select></div>
+      <div class="divider"></div>
+      <button class="btn btn-gold" id="gm-start-btn" onclick="startGame()" disabled>Start Game 🌙</button>
+      <p class="tip" id="gm-start-tip">Need at least 4 players</p>
+    </div>
+  </div>
+</div>
+
+<!-- GM NIGHT -->
+<div class="screen gm-wide" id="s-gm-night">
+  <span class="gm-phase phase-night">🌙 GM VIEW — NIGHT PHASE</span>
+  <div class="gm-grid">
+    <div class="card glow gm-night-display"><p class="muted">Current time</p><div class="gm-clock" id="gm-clock">—</div><div class="progress-bar" style="margin-top:16px"><div class="progress-fill" id="gm-progress" style="width:100%"></div></div><p style="font-size:.8rem;color:var(--gold);margin-top:8px">🔊 Announcing hours out loud</p></div>
+    <div class="card gm"><h3>Players</h3><ul class="player-list" id="gm-night-list"></ul></div>
+  </div>
+  <p class="tip" style="text-align:center">Night runs automatically — sit back and play!</p>
+</div>
+
+<!-- GM DAY -->
+<div class="screen gm-wide" id="s-gm-day">
+  <span class="gm-phase phase-day">☀️ GM VIEW — DAY PHASE</span>
+  <div class="card" style="text-align:center"><div style="font-size:3rem">☀️</div><h2>Good Morning, Village!</h2><p style="font-size:.95rem;line-height:1.6;margin-bottom:16px">Let the players discuss. When ready, start the vote.</p><button class="btn btn-gold" onclick="startVoting()">Start Voting 🗳️</button></div>
+  <div class="card gm"><h3>Players</h3><ul class="player-list" id="gm-day-list"></ul></div>
+</div>
+
+<!-- GM VOTING -->
+<div class="screen gm-wide" id="s-gm-voting">
+  <span class="gm-phase phase-voting">🗳️ GM VIEW — VOTING</span>
+  <div class="card gm"><h3>Waiting for votes…</h3><ul class="player-list" id="gm-vote-list"></ul></div>
+  <p class="tip">Players are voting privately on their own devices.</p>
+</div>
+
+<!-- GM RESULTS -->
+<div class="screen gm-wide" id="s-gm-results">
+  <span class="gm-phase phase-results">🏆 RESULTS</span>
+  <div class="emoji-big" id="gm-result-emoji">🧀</div>
+  <div class="winner-banner" id="gm-winner-banner"></div>
+  <div class="card" style="width:100%"><h3 style="margin-bottom:12px">📊 Vote Tally</h3><div id="gm-vote-results"></div></div>
+  <div class="card" style="width:100%"><h3 style="margin-bottom:12px">🎭 Role Reveal</h3><ul class="player-list" id="gm-role-reveal"></ul></div>
+  <button class="btn btn-gold" onclick="playAgain()">Play Again 🧀</button>
+</div>
+
+<!-- PLAYER DICE -->
+<div class="screen" id="s-dice">
+  <div style="text-align:center"><div class="emoji-big">🎲</div><h2 id="dice-greeting">Hello!</h2><p class="muted">Roll to find out when you wake up tonight…</p></div>
+  <div class="card glow">
+    <div class="dice-wrap"><div class="die" id="die1">🎲</div><div class="die" id="die2">🎲</div></div>
+    <div id="dice-result" style="display:none;margin-bottom:12px"><p style="font-size:1.1rem;margin-bottom:6px">You wake up at…</p><div class="wake-badge" id="wake-time-display"></div><p class="tip" style="margin-top:10px">Remember your time — don't tell anyone!</p></div>
+    <button class="btn btn-gold" id="roll-btn" onclick="rollDice()">Roll the Dice!</button>
+    <button class="btn btn-outline" id="reveal-role-btn" style="display:none" onclick="showRoleCard()">See My Role 🃏</button>
+  </div>
+</div>
+
+<!-- PLAYER ROLE -->
+<div class="screen" id="s-role">
+  <div style="text-align:center"><h2>Your Secret Role</h2><p class="muted">Don't show anyone else!</p></div>
+  <div class="role-card" id="role-card"><div id="role-emoji"></div><div class="role-title" id="role-title"></div><p id="role-desc" style="margin-top:8px;font-size:.95rem;opacity:.85"></p><div class="wake-badge" id="role-wake" style="margin-top:14px"></div></div>
+  <div class="card"><p class="tip" style="text-align:center">Memorise your role and wake time.</p><button class="btn btn-gold" style="margin-top:12px" onclick="playerReady()">I'm Ready ✓</button></div>
+</div>
+
+<!-- PLAYER WAIT -->
+<div class="screen" id="s-wait-night">
+  <div style="text-align:center"><div class="emoji-big">⏳</div><h2>Waiting for all players…</h2><p class="muted">Everyone needs to confirm their role first</p></div>
+  <div class="card"><ul class="player-list" id="ready-list"></ul></div>
+</div>
+
+<!-- PLAYER NIGHT -->
+<div class="screen" id="s-night">
+  <div style="text-align:center"><div class="emoji-big">🌙</div><h2>Night Falls…</h2><p class="muted">Watch your screen quietly.</p></div>
+  <div class="card glow" style="text-align:center"><p class="muted" style="margin-bottom:6px">Current time</p><div class="night-clock" id="night-clock">—</div><div class="night-msg" id="night-msg" style="margin-top:12px">...</div><div class="progress-bar" style="margin-top:12px"><div class="progress-fill" id="night-progress" style="width:100%"></div></div></div>
+</div>
+
+<!-- PLAYER DAY -->
+<div class="screen" id="s-day">
+  <div style="text-align:center"><div class="emoji-big">☀️</div><h2>Good Morning!</h2><p class="muted">Discuss who you think the Cheese Thief is…</p></div>
+  <div class="card" style="text-align:center"><p class="muted tip"><span class="spinner"></span>Waiting for host to start voting…</p></div>
+  <div class="card"><h3>Your Role Reminder</h3><div style="display:flex;align-items:center;gap:12px"><div id="day-role-emoji" style="width:48px;height:48px;overflow:hidden;flex-shrink:0"></div><div style="text-align:left"><div id="day-role-title" style="font-weight:bold;color:var(--gold)"></div><div class="wake-badge" id="day-wake" style="font-size:.8rem;padding:3px 10px;margin-top:4px"></div></div></div></div>
+</div>
+
+<!-- PLAYER VOTE -->
+<div class="screen" id="s-vote">
+  <div style="text-align:center"><div class="emoji-big">🗳️</div><h2>Cast Your Vote</h2><p class="muted">Who do you think is the Cheese Thief?</p></div>
+  <div class="card"><p class="tip" style="margin-bottom:12px;text-align:center">You cannot vote for yourself.</p><div class="vote-grid" id="vote-grid"></div><button class="btn btn-gold" style="margin-top:14px" id="submit-vote-btn" onclick="submitVote()" disabled>Submit Vote</button><div id="vote-submitted-msg" style="display:none;text-align:center;margin-top:10px"><p style="color:var(--green)">✓ Vote submitted! <span class="spinner"></span>Waiting for others…</p></div></div>
+</div>
+
+<!-- PLAYER RESULTS -->
+<div class="screen" id="s-results">
+  <div style="text-align:center"><div class="emoji-big" id="result-emoji">🧀</div><h2 id="result-title"></h2></div>
+  <div class="winner-banner" id="winner-banner"></div>
+  <div class="card" style="width:100%"><h3 style="margin-bottom:12px">📊 Vote Tally</h3><div id="vote-results"></div></div>
+  <div class="card" style="width:100%"><h3 style="margin-bottom:12px">🎭 Role Reveal</h3><ul class="player-list" id="role-reveal-list"></ul></div>
+  <button class="btn btn-gold" onclick="playAgain()">Play Again 🧀</button>
+</div>
+
+<script>
+// ── Firebase init ─────────────────────────────────────────────────────────
+var firebaseConfig = {
+  apiKey: "AIzaSyCS0X2cNcC1YOLEaXn3Nh-1s7DtRXZ43ZY",
+  authDomain: "game-test-b98d3.firebaseapp.com",
+  databaseURL: "https://game-test-b98d3-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "game-test-b98d3",
+  storageBucket: "game-test-b98d3.firebasestorage.app",
+  messagingSenderId: "636878489690",
+  appId: "1:636878489690:web:4bff67895ba313012a7063"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
+
+// ── Mouse SVGs ────────────────────────────────────────────────────────────
+const MOUSE_SVG={
+  thief:`<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" width="120" height="120"><ellipse cx="60" cy="108" rx="28" ry="6" fill="#00000030"/><path d="M72 95 Q100 105 108 88 Q114 74 98 70" fill="none" stroke="#c0785a" stroke-width="3.5" stroke-linecap="round"/><ellipse cx="58" cy="85" rx="26" ry="22" fill="#8B4513"/><path d="M34 78 Q36 105 58 108 Q80 105 82 78 Q70 90 58 90 Q46 90 34 78Z" fill="#1a0a2e"/><circle cx="58" cy="58" r="24" fill="#8B4513"/><circle cx="38" cy="40" r="11" fill="#8B4513"/><circle cx="38" cy="40" r="7" fill="#c0785a"/><circle cx="78" cy="40" r="11" fill="#8B4513"/><circle cx="78" cy="40" r="7" fill="#c0785a"/><rect x="42" y="52" width="32" height="11" rx="5" fill="#1a0a2e"/><circle cx="51" cy="57" r="4.5" fill="#fff"/><circle cx="65" cy="57" r="4.5" fill="#fff"/><circle cx="53" cy="57" r="2.8" fill="#1a0a2e"/><circle cx="67" cy="57" r="2.8" fill="#1a0a2e"/><circle cx="54" cy="56" r="1" fill="#fff"/><circle cx="68" cy="56" r="1" fill="#fff"/><path d="M50 68 Q58 74 68 67" fill="none" stroke="#c0785a" stroke-width="2" stroke-linecap="round"/><ellipse cx="58" cy="64" rx="4" ry="3" fill="#c0785a"/><line x1="38" y1="63" x2="54" y2="65" stroke="#e8c8a0" stroke-width="1.2" stroke-linecap="round"/><line x1="36" y1="67" x2="53" y2="67" stroke="#e8c8a0" stroke-width="1.2" stroke-linecap="round"/><line x1="62" y1="65" x2="78" y2="63" stroke="#e8c8a0" stroke-width="1.2" stroke-linecap="round"/><line x1="63" y1="67" x2="80" y2="67" stroke="#e8c8a0" stroke-width="1.2" stroke-linecap="round"/><rect x="78" y="88" width="13" height="11" rx="2" fill="#f5c842"/><circle cx="82" cy="92" r="1.5" fill="#c8a020"/><circle cx="86" cy="95" r="1.2" fill="#c8a020"/><circle cx="89" cy="91" r="1" fill="#c8a020"/></svg>`,
+  follower:`<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" width="120" height="120"><ellipse cx="60" cy="108" rx="28" ry="6" fill="#00000030"/><path d="M72 96 Q98 106 104 90 Q108 76 94 72" fill="none" stroke="#909090" stroke-width="3.5" stroke-linecap="round"/><ellipse cx="58" cy="85" rx="26" ry="22" fill="#888"/><circle cx="58" cy="58" r="24" fill="#888"/><circle cx="37" cy="40" r="12" fill="#888"/><circle cx="37" cy="40" r="8" fill="#b0a0b8"/><circle cx="79" cy="40" r="12" fill="#888"/><circle cx="79" cy="40" r="8" fill="#b0a0b8"/><circle cx="44" cy="64" r="7" fill="#c090c0" opacity="0.45"/><circle cx="72" cy="64" r="7" fill="#c090c0" opacity="0.45"/><circle cx="50" cy="54" r="6" fill="#fff"/><circle cx="66" cy="54" r="6" fill="#fff"/><circle cx="51" cy="55" r="3.8" fill="#5a2080"/><circle cx="67" cy="55" r="3.8" fill="#5a2080"/><circle cx="52" cy="53" r="1.5" fill="#fff"/><circle cx="68" cy="53" r="1.5" fill="#fff"/><path d="M48 67 Q58 75 68 67" fill="none" stroke="#a080a0" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="58" cy="63" rx="4" ry="3" fill="#b070b0"/><line x1="36" y1="61" x2="53" y2="63" stroke="#b0b0b0" stroke-width="1.3" stroke-linecap="round"/><line x1="34" y1="65" x2="52" y2="65" stroke="#b0b0b0" stroke-width="1.3" stroke-linecap="round"/><line x1="63" y1="63" x2="80" y2="61" stroke="#b0b0b0" stroke-width="1.3" stroke-linecap="round"/><line x1="64" y1="65" x2="82" y2="65" stroke="#b0b0b0" stroke-width="1.3" stroke-linecap="round"/><ellipse cx="34" cy="88" rx="8" ry="6" fill="#888" transform="rotate(-20,34,88)"/><ellipse cx="82" cy="88" rx="8" ry="6" fill="#888" transform="rotate(20,82,88)"/></svg>`,
+  villager:`<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" width="120" height="120"><ellipse cx="60" cy="108" rx="28" ry="6" fill="#00000030"/><path d="M72 96 Q98 106 104 90 Q108 76 94 72" fill="none" stroke="#d0c0c0" stroke-width="3.5" stroke-linecap="round"/><ellipse cx="58" cy="85" rx="26" ry="22" fill="#f0eaea"/><circle cx="58" cy="58" r="24" fill="#f0eaea"/><circle cx="37" cy="40" r="12" fill="#f0eaea"/><circle cx="37" cy="40" r="8" fill="#f4c4c4"/><circle cx="79" cy="40" r="12" fill="#f0eaea"/><circle cx="79" cy="40" r="8" fill="#f4c4c4"/><circle cx="44" cy="64" r="7" fill="#f4a0a0" opacity="0.55"/><circle cx="72" cy="64" r="7" fill="#f4a0a0" opacity="0.55"/><circle cx="50" cy="54" r="6" fill="#fff"/><circle cx="66" cy="54" r="6" fill="#fff"/><circle cx="51" cy="55" r="3.8" fill="#c0404a"/><circle cx="67" cy="55" r="3.8" fill="#c0404a"/><circle cx="52" cy="53" r="1.5" fill="#fff"/><circle cx="68" cy="53" r="1.5" fill="#fff"/><path d="M48 67 Q58 75 68 67" fill="none" stroke="#d0a0a0" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="58" cy="63" rx="4" ry="3" fill="#e08090"/><line x1="36" y1="61" x2="53" y2="63" stroke="#c8c0c0" stroke-width="1.3" stroke-linecap="round"/><line x1="34" y1="65" x2="52" y2="65" stroke="#c8c0c0" stroke-width="1.3" stroke-linecap="round"/><line x1="63" y1="63" x2="80" y2="61" stroke="#c8c0c0" stroke-width="1.3" stroke-linecap="round"/><line x1="64" y1="65" x2="82" y2="65" stroke="#c8c0c0" stroke-width="1.3" stroke-linecap="round"/><ellipse cx="34" cy="88" rx="8" ry="6" fill="#f0eaea" transform="rotate(-20,34,88)"/><ellipse cx="82" cy="88" rx="8" ry="6" fill="#f0eaea" transform="rotate(20,82,88)"/></svg>`
+};
+
+// ── Audio / Speech ─────────────────────────────────────────────────────────
+var audioCtx=null;
+function getAudio(){ if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
+function playTone(freq,dur,type,vol){
+  type=type||'sine';vol=vol||0.25;
+  try{ var ctx=getAudio(),osc=ctx.createOscillator(),gain=ctx.createGain(); osc.connect(gain);gain.connect(ctx.destination); osc.type=type;osc.frequency.value=freq; gain.gain.setValueAtTime(vol,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur); osc.start();osc.stop(ctx.currentTime+dur); }catch(e){}
+}
+function playChime(freqs,gap){ gap=gap||120; freqs.forEach(function(f,i){ setTimeout(function(){ playTone(f,0.4,'sine',0.2); },i*gap); }); }
+function speak(text){ try{ window.speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(text); u.rate=0.85;u.volume=1; window.speechSynthesis.speak(u); }catch(e){} }
+
+// ── State ──────────────────────────────────────────────────────────────────
+var myId=null,myName=null,roomCode=null,isGM=false;
+var myRole=null,myWakeTime=null,selectedVote=null;
+var nightInterval=null,lastSpokenHour=-1,diceRolled=false,lastPhase=null;
+var roomListener=null;
+var HOURS=['1am','2am','3am','4am','5am','6am'];
+var FACES=['⚀','⚁','⚂','⚃','⚄','⚅'];
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function showScreen(id){ document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');}); document.getElementById(id).classList.add('active'); }
+function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},2500); }
+function genCode(){ var ch='ABCDEFGHJKLMNPQRSTUVWXYZ'; return Array.from({length:4},function(){return ch[Math.floor(Math.random()*ch.length)];}).join(''); }
+
+// ── Firebase helpers ───────────────────────────────────────────────────────
+function roomRef(){ return db.ref('rooms/'+roomCode); }
+
+// ── Create Room ────────────────────────────────────────────────────────────
+function createRoom(){
+  var name=document.getElementById('host-name').value.trim();
+  if(!name){toast('Enter your name!');return;}
+  var interval=parseInt(document.getElementById('interval-select').value);
+  myId='GM_'+uid(); myName=name; isGM=true; roomCode=genCode();
+  var room={code:roomCode,host:myId,interval:interval,phase:'lobby',players:{},votes:{},roles:{},wakeTimes:{},nightStart:0,created:Date.now()};
+  roomRef().set(room).then(function(){
+    document.getElementById('gm-display-code').textContent=roomCode;
+    document.getElementById('gm-interval').value=interval;
+    showScreen('s-gm-lobby');
+    startListening();
+  });
+}
+
+// ── Join Room ──────────────────────────────────────────────────────────────
+function joinRoom(){
+  var code=document.getElementById('join-code').value.trim().toUpperCase();
+  var name=document.getElementById('join-name').value.trim();
+  if(!code||code.length!==4){toast('Enter a 4-letter code!');return;}
+  if(!name){toast('Enter your name!');return;}
+  roomCode=code;
+  db.ref('rooms/'+roomCode).once('value').then(function(snap){
+    if(!snap.exists()){toast('Room not found!');return;}
+    var room=snap.val();
+    if(room.phase!=='lobby'){toast('Game already started!');return;}
+    var players=room.players||{};
+    if(Object.keys(players).length>=8){toast('Room is full!');return;}
+    myId=uid(); myName=name; isGM=false;
+    players[myId]={id:myId,name:name,ready:false,voted:false};
+    db.ref('rooms/'+roomCode+'/players').set(players).then(function(){
+      showScreen('s-wait-night');
+      startListening();
+    });
+  });
+}
+
+// ── Listen ─────────────────────────────────────────────────────────────────
+function startListening(){
+  if(roomListener) roomRef().off('value',roomListener);
+  roomListener=roomRef().on('value',function(snap){
+    if(!snap.exists()) return;
+    handleRoom(snap.val());
+  });
+}
+
+function handleRoom(room){
+  var phase=room.phase;
+  var cur=document.querySelector('.screen.active')?document.querySelector('.screen.active').id:'';
+
+  if(phase==='lobby'&&isGM) renderGMLobby(room);
+
+  if(phase==='dice'&&lastPhase!=='dice'){
+    if(!isGM){ myRole=room.roles[myId]; myWakeTime=room.wakeTimes[myId]; showDiceScreen(); }
+  }
+
+  if(phase==='night'){
+    if(lastPhase!=='night'){ lastSpokenHour=-1; if(isGM) showScreen('s-gm-night'); else showScreen('s-night'); }
+    if(!nightInterval) nightInterval=setInterval(function(){ tickNight(room); },500);
+    // update room ref for tick
+    currentRoom=room;
+  }
+
+  if(phase==='day'&&lastPhase!=='day'){
+    if(nightInterval){clearInterval(nightInterval);nightInterval=null;}
+    showDayPhase(room);
+  }
+
+  if(phase==='voting'){
+    if(lastPhase!=='voting') showVotingScreen(room);
+    if(isGM) renderGMVoting(room);
+  }
+
+  if(phase==='results'&&lastPhase!=='results') showResults(room);
+
+  if(phase==='dice'&&!isGM&&(cur==='s-wait-night'||cur==='s-role')) renderReadyList(room);
+
+  lastPhase=phase;
+}
+
+// ── GM Lobby ───────────────────────────────────────────────────────────────
+function renderGMLobby(room){
+  var ps=Object.values(room.players||{});
+  document.getElementById('gm-player-count').textContent=ps.length;
+  document.getElementById('gm-lobby-list').innerHTML=ps.length===0
+    ?'<li style="color:var(--muted);font-style:italic">Waiting for players…</li>'
+    :ps.map(function(p){return '<li>🐭 '+p.name+'</li>';}).join('');
+  var btn=document.getElementById('gm-start-btn');
+  var tip=document.getElementById('gm-start-tip');
+  btn.disabled=ps.length<4;
+  tip.textContent=ps.length<4?'Need '+(4-ps.length)+' more player'+(4-ps.length>1?'s':'')+'…':ps.length+' players ready — good to go!';
+}
+
+function updateInterval(){
+  var v=parseInt(document.getElementById('gm-interval').value);
+  db.ref('rooms/'+roomCode+'/interval').set(v);
+}
+
+// ── Start Game ─────────────────────────────────────────────────────────────
+function startGame(){
+  db.ref('rooms/'+roomCode).once('value').then(function(snap){
+    var room=snap.val();
+    var ps=Object.values(room.players||{});
+    if(ps.length<4){toast('Need at least 4 players!');return;}
+    var hasFollower=ps.length>=5;
+    var shuffled=ps.slice().sort(function(){return Math.random()-.5;});
+    var roles={};
+    roles[shuffled[0].id]='thief';
+    if(hasFollower) roles[shuffled[1].id]='follower';
+    ps.forEach(function(p){if(!roles[p.id]) roles[p.id]='villager';});
+    var wakeTimes={};
+    ps.forEach(function(p){wakeTimes[p.id]=Math.ceil(Math.random()*6);});
+    roomRef().update({roles:roles,wakeTimes:wakeTimes,phase:'dice'});
+  });
+}
+
+// ── Dice ───────────────────────────────────────────────────────────────────
+function showDiceScreen(){
+  diceRolled=false;
+  document.getElementById('dice-greeting').textContent='Hello, '+myName+'! 🐭';
+  document.getElementById('dice-result').style.display='none';
+  document.getElementById('roll-btn').style.display='block';
+  document.getElementById('reveal-role-btn').style.display='none';
+  document.getElementById('die1').textContent='🎲';
+  document.getElementById('die2').textContent='🎲';
+  showScreen('s-dice');
+}
+function rollDice(){
+  if(diceRolled)return; diceRolled=true;
+  var d1=document.getElementById('die1'),d2=document.getElementById('die2');
+  d1.classList.add('rolling');d2.classList.add('rolling');
+  var t=0;
+  var iv=setInterval(function(){
+    d1.textContent=FACES[Math.floor(Math.random()*6)];
+    d2.textContent=FACES[Math.floor(Math.random()*6)];
+    playTone(200+Math.random()*200,0.05,'square',0.05);
+    t++;
+    if(t>12){
+      clearInterval(iv);
+      d1.classList.remove('rolling');d2.classList.remove('rolling');
+      d1.textContent=FACES[Math.floor(Math.random()*6)];
+      d2.textContent=FACES[Math.floor(Math.random()*6)];
+      playChime([523,659,784],100);
+      document.getElementById('wake-time-display').textContent=HOURS[myWakeTime-1];
+      document.getElementById('dice-result').style.display='block';
+      document.getElementById('roll-btn').style.display='none';
+      document.getElementById('reveal-role-btn').style.display='block';
+    }
+  },80);
+}
+function showRoleCard(){
+  var map={
+    thief:{title:'Cheese Thief',cls:'role-thief',desc:'You sneak out every night to steal the cheese. Avoid suspicion and let someone else take the blame.'},
+    follower:{title:'Follower',cls:'role-follower',desc:'You secretly help the Thief. Give a thumbs-up when you both wake — only the Thief will understand. Stay hidden.'},
+    villager:{title:'Villager Mouse',cls:'role-villager',desc:'Protect the cheese! Watch carefully during the night and use your wits during the day to find the Thief.'}
+  };
+  var r=map[myRole];
+  document.getElementById('role-card').className='role-card '+r.cls;
+  document.getElementById('role-emoji').innerHTML=MOUSE_SVG[myRole];
+  document.getElementById('role-title').textContent=r.title;
+  document.getElementById('role-desc').textContent=r.desc;
+  document.getElementById('role-wake').textContent='⏰ Wake at '+HOURS[myWakeTime-1];
+  showScreen('s-role');
+}
+function playerReady(){
+  showScreen('s-wait-night');
+  db.ref('rooms/'+roomCode+'/players/'+myId+'/ready').set(true);
+}
+function renderReadyList(room){
+  var ps=Object.values(room.players||{});
+  document.getElementById('ready-list').innerHTML=ps.map(function(p){
+    return '<li><span class="status-dot '+(p.ready?'dot-green':'dot-wait')+'"></span>'+p.name+' <span class="badge '+(p.ready?'badge-ready':'badge-wait')+'">'+(p.ready?'Ready':'Waiting')+'</span></li>';
+  }).join('');
+}
+
+// ── Night ──────────────────────────────────────────────────────────────────
+var currentRoom=null;
+function tickNight(room){
+  if(room) currentRoom=room;
+  if(!currentRoom) return;
+  var r=currentRoom;
+  var interval=(r.interval||15)*1000;
+  var elapsed=Date.now()-r.nightStart;
+  var currentHour=Math.floor(elapsed/interval);
+  var progress=1-((elapsed%interval)/interval);
+
+  if(isGM){
+    var gmProg=document.getElementById('gm-progress');
+    var gmClock=document.getElementById('gm-clock');
+    if(gmProg) gmProg.style.width=(progress*100)+'%';
+    if(gmClock) gmClock.textContent=currentHour>=6?'🌅':(HOURS[currentHour]||'—');
+    var ps=Object.values(r.players||{});
+    var nl=document.getElementById('gm-night-list');
+    if(nl) nl.innerHTML=ps.map(function(p){return '<li>🐭 '+p.name+'</li>';}).join('');
+    if(currentHour!==lastSpokenHour){
+      lastSpokenHour=currentHour;
+      if(currentHour>=6){ speak('Good morning!'); playChime([523,659,784,1047],160); }
+      else speak(HOURS[currentHour]);
+    }
+    if(currentHour>=7){ clearInterval(nightInterval);nightInterval=null; roomRef().update({phase:'day'}); }
+  } else {
+    var pProg=document.getElementById('night-progress');
+    var pClock=document.getElementById('night-clock');
+    if(pProg) pProg.style.width=(progress*100)+'%';
+    if(currentHour>=6){
+      if(pClock) pClock.textContent='🌅';
+      document.getElementById('night-msg').textContent="It's morning!";
+      document.getElementById('night-msg').className='night-msg eyes-open';
+    } else {
+      if(pClock) pClock.textContent=HOURS[currentHour];
+      var mine=myWakeTime===(currentHour+1);
+      document.getElementById('night-msg').textContent=mine?'👀 Open your eyes':'😴 Keep your eyes closed';
+      document.getElementById('night-msg').className='night-msg '+(mine?'eyes-open':'eyes-closed');
+    }
+  }
+}
+
+// ── Day ────────────────────────────────────────────────────────────────────
+function showDayPhase(room){
+  if(isGM){
+    var ps=Object.values(room.players||{});
+    document.getElementById('gm-day-list').innerHTML=ps.map(function(p){return '<li>🐭 '+p.name+'</li>';}).join('');
+    showScreen('s-gm-day');
+  } else {
+    var tl={thief:'Cheese Thief',follower:'Follower',villager:'Villager Mouse'};
+    document.getElementById('day-role-emoji').innerHTML='<div style="width:48px;height:48px;overflow:hidden">'+MOUSE_SVG[myRole]+'</div>';
+    document.getElementById('day-role-title').textContent=tl[myRole];
+    document.getElementById('day-wake').textContent='⏰ '+HOURS[myWakeTime-1];
+    showScreen('s-day');
+  }
+}
+function startVoting(){ roomRef().update({phase:'voting'}); }
+
+// ── Voting ─────────────────────────────────────────────────────────────────
+function showVotingScreen(room){
+  if(isGM){ renderGMVoting(room); showScreen('s-gm-voting'); }
+  else {
+    selectedVote=null;
+    var ps=Object.values(room.players||{}).filter(function(p){return p.id!==myId;});
+    document.getElementById('vote-grid').innerHTML=ps.map(function(p){
+      return '<button class="vote-btn" onclick="selectVote(\''+p.id+'\',this)">'+p.name+'</button>';
+    }).join('');
+    document.getElementById('submit-vote-btn').disabled=true;
+    document.getElementById('submit-vote-btn').style.display='block';
+    document.getElementById('vote-submitted-msg').style.display='none';
+    showScreen('s-vote');
+  }
+}
+function renderGMVoting(room){
+  var ps=Object.values(room.players||{});
+  document.getElementById('gm-vote-list').innerHTML=ps.map(function(p){
+    return '<li><span class="status-dot '+(p.voted?'dot-green':'dot-wait')+'"></span>'+p.name+' <span class="badge '+(p.voted?'badge-ready':'badge-wait')+'">'+(p.voted?'Voted':'Waiting')+'</span></li>';
+  }).join('');
+  if(ps.length>0&&ps.every(function(p){return p.voted;})) roomRef().update({phase:'results'});
+}
+function selectVote(id,btn){
+  selectedVote=id;
+  document.querySelectorAll('.vote-btn').forEach(function(b){b.classList.remove('selected');});
+  btn.classList.add('selected');
+  document.getElementById('submit-vote-btn').disabled=false;
+}
+function submitVote(){
+  if(!selectedVote)return;
+  document.getElementById('submit-vote-btn').style.display='none';
+  document.getElementById('vote-submitted-msg').style.display='block';
+  document.querySelectorAll('.vote-btn').forEach(function(b){b.disabled=true;});
+  db.ref('rooms/'+roomCode+'/votes/'+myId).set(selectedVote);
+  db.ref('rooms/'+roomCode+'/players/'+myId+'/voted').set(true);
+}
+
+// ── Results ────────────────────────────────────────────────────────────────
+function showResults(room){
+  var ps=Object.values(room.players||{});
+  var tally={};
+  ps.forEach(function(p){tally[p.id]=0;});
+  Object.values(room.votes||{}).forEach(function(vid){if(tally[vid]!==undefined)tally[vid]++;});
+  var sorted=ps.slice().sort(function(a,b){return tally[b.id]-tally[a.id];});
+  var top=tally[sorted[0].id];
+  var thiefId=Object.keys(room.roles||{}).find(function(id){return room.roles[id]==='thief';});
+  var topPlayers=sorted.filter(function(p){return tally[p.id]===top;});
+  var villagerWin=topPlayers.length===1&&topPlayers[0].id===thiefId;
+  if(villagerWin){playChime([523,659,784,1047,1319],130);if(isGM)speak('The Cheese Thief has been caught! Villagers win!');}
+  else{playChime([300,250,220],200);if(isGM)speak('The Cheese Thief escapes! The village is fooled!');}
+  var colors=['#f5c842','#e8a020','#c0392b','#8e44ad','#27ae60','#2980b9','#e67e22','#16a085'];
+  var maxV=Math.max.apply(null,Object.values(tally).concat([1]));
+  var barsHTML=sorted.map(function(p,i){
+    return '<div class="result-bar-wrap"><div class="result-bar-label"><span>🐭 '+p.name+'</span><span>'+tally[p.id]+' vote'+(tally[p.id]!==1?'s':'')+'</span></div><div class="result-bar"><div class="result-bar-fill" style="width:'+(tally[p.id]/maxV*100)+'%;background:'+colors[i%colors.length]+'"></div></div></div>';
+  }).join('');
+  var rLabel={thief:'🐀 Cheese Thief',follower:'🐁 Follower',villager:'🐭 Villager'};
+  var revealHTML=ps.map(function(p){
+    return '<li>'+rLabel[room.roles[p.id]]+' — <strong>'+p.name+'</strong> <span class="muted">(wake: '+HOURS[room.wakeTimes[p.id]-1]+')</span></li>';
+  }).join('');
+  if(isGM){
+    document.getElementById('gm-result-emoji').textContent=villagerWin?'🎉':'🧀';
+    var wb=document.getElementById('gm-winner-banner');
+    wb.className='winner-banner '+(villagerWin?'winner-v':'winner-t');
+    wb.textContent=villagerWin?'🐭 Villagers Win! The Cheese Thief has been caught!':'🐀 Cheese Thief Wins! The village was fooled!';
+    document.getElementById('gm-vote-results').innerHTML=barsHTML;
+    document.getElementById('gm-role-reveal').innerHTML=revealHTML;
+    showScreen('s-gm-results');
+  } else {
+    document.getElementById('result-emoji').textContent=villagerWin?'🎉':'🧀';
+    document.getElementById('result-title').textContent=villagerWin?'The Thief is caught!':'The Thief escapes!';
+    var wb2=document.getElementById('winner-banner');
+    wb2.className='winner-banner '+(villagerWin?'winner-v':'winner-t');
+    wb2.textContent=villagerWin?'🐭 Villagers Win!':'🐀 Cheese Thief Wins!';
+    document.getElementById('vote-results').innerHTML=barsHTML;
+    document.getElementById('role-reveal-list').innerHTML=revealHTML;
+    showScreen('s-results');
+  }
+}
+
+// ── Play Again ─────────────────────────────────────────────────────────────
+function playAgain(){
+  if(nightInterval){clearInterval(nightInterval);nightInterval=null;}
+  if(roomListener) roomRef().off('value',roomListener);
+  if(isGM) roomRef().remove();
+  roomCode=null;myId=null;myName=null;isGM=false;
+  myRole=null;myWakeTime=null;selectedVote=null;
+  lastSpokenHour=-1;diceRolled=false;lastPhase=null;currentRoom=null;
+  showScreen('s-home');
+}
+
+document.addEventListener('click',function(){try{getAudio();}catch(e){}},{once:true});
+</script>
+</body>
+</html>
