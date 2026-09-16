@@ -279,7 +279,7 @@ function speak(text,fast){
   try{
     window.speechSynthesis.cancel();
     var u=new SpeechSynthesisUtterance(text);
-    u.rate=0.9;
+    u.rate=0.6;
     u.pitch=1.6;
     u.volume=1;
     window.speechSynthesis.speak(u);
