@@ -143,6 +143,21 @@
   </div>
 </div>
 
+<!-- GM WAIT -->
+<div class="screen gm-wide" id="s-gm-wait">
+  <span class="gm-phase phase-dice">🎲 GM VIEW — PLAYERS GETTING ROLES</span>
+  <div class="gm-grid">
+    <div class="card gm">
+      <h3>Ready status</h3>
+      <ul class="player-list" id="gm-ready-list"></ul>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
+      <p style="font-size:.95rem;line-height:1.6">Wait for all players to confirm their role, then begin the night phase.</p>
+      <button class="btn btn-gold" id="gm-begin-night-btn" onclick="beginNight()" disabled>Begin Night Phase 🌙</button>
+    </div>
+  </div>
+</div>
+
 <!-- GM NIGHT -->
 <div class="screen gm-wide" id="s-gm-night">
   <span class="gm-phase phase-night">🌙 GM VIEW — NIGHT PHASE</span>
@@ -329,8 +344,15 @@ function handleRoom(room){
 
   if(phase==='lobby'&&isGM) renderGMLobby(room);
 
-  if(phase==='dice'&&lastPhase!=='dice'){
-    if(!isGM){ myRole=room.roles[myId]; myWakeTime=room.wakeTimes[myId]; showDiceScreen(); }
+  if(phase==='dice'){
+    if(!isGM){
+      myRole=room.roles[myId]; myWakeTime=room.wakeTimes[myId];
+      if(lastPhase!=='dice') showDiceScreen();
+    }
+    if(isGM){
+      if(lastPhase!=='dice') showScreen('s-gm-wait');
+      renderGMWait(room);
+    }
   }
 
   if(phase==='night'){
@@ -356,6 +378,19 @@ function handleRoom(room){
 
   lastPhase=phase;
 }
+
+// ── GM Wait ────────────────────────────────────────────────────────────────
+function renderGMWait(room){
+  var ps=Object.values(room.players||{});
+  document.getElementById('gm-ready-list').innerHTML=ps.map(function(p){
+    return '<li><span class="status-dot '+(p.ready?'dot-green':'dot-wait')+'"></span>'+p.name+' <span class="badge '+(p.ready?'badge-ready':'badge-wait')+'">'+(p.ready?'Ready':'Waiting')+'</span></li>';
+  }).join('');
+  var allReady=ps.length>0&&ps.every(function(p){return p.ready;});
+  var btn=document.getElementById('gm-begin-night-btn');
+  if(btn) btn.disabled=!allReady;
+}
+
+function beginNight(){ roomRef().update({phase:'night',nightStart:Date.now()}); }
 
 // ── GM Lobby ───────────────────────────────────────────────────────────────
 function renderGMLobby(room){
