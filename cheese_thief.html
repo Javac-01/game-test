@@ -273,7 +273,18 @@ function playTone(freq,dur,type,vol){
   try{ var ctx=getAudio(),osc=ctx.createOscillator(),gain=ctx.createGain(); osc.connect(gain);gain.connect(ctx.destination); osc.type=type;osc.frequency.value=freq; gain.gain.setValueAtTime(vol,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur); osc.start();osc.stop(ctx.currentTime+dur); }catch(e){}
 }
 function playChime(freqs,gap){ gap=gap||120; freqs.forEach(function(f,i){ setTimeout(function(){ playTone(f,0.4,'sine',0.2); },i*gap); }); }
-function speak(text){ try{ window.speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(text); u.rate=0.85;u.volume=1; window.speechSynthesis.speak(u); }catch(e){} }
+var HOUR_PHRASES=["Ooh, it's 1am! The night has just begun!","2am! The village is fast asleep!","3am! Shh… quiet as a mouse!","4am! Getting closer to dawn!","5am! Almost morning!","6am! Last one awake!"];
+
+function speak(text,fast){
+  try{
+    window.speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(text);
+    u.rate=fast?1.2:1.0;
+    u.pitch=1.4;
+    u.volume=1;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
 
 // ── State ──────────────────────────────────────────────────────────────────
 var myId=null,myName=null,roomCode=null,isGM=false;
@@ -508,10 +519,13 @@ function tickNight(room){
     if(nl) nl.innerHTML=ps.map(function(p){return '<li>🐭 '+p.name+'</li>';}).join('');
     if(currentHour!==lastSpokenHour){
       lastSpokenHour=currentHour;
-      if(currentHour>=6){ speak('Good morning!'); playChime([523,659,784,1047],160); }
-      else speak(HOURS[currentHour]);
+      if(currentHour>=6){
+        speak('Good morning everyone! Rise and shine!',true);
+        playChime([523,659,784,1047],160);
+        setTimeout(function(){ roomRef().update({phase:'day'}); }, 3000);
+      }
+      else speak(HOUR_PHRASES[currentHour],true);
     }
-    if(currentHour>=7){ clearInterval(nightInterval);nightInterval=null; roomRef().update({phase:'day'}); }
   } else {
     var pProg=document.getElementById('night-progress');
     var pClock=document.getElementById('night-clock');
