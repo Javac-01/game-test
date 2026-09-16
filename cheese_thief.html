@@ -279,8 +279,8 @@ function speak(text,fast){
   try{
     window.speechSynthesis.cancel();
     var u=new SpeechSynthesisUtterance(text);
-    u.rate=fast?1.2:1.0;
-    u.pitch=1.4;
+    u.rate=0.9;
+    u.pitch=1.6;
     u.volume=1;
     window.speechSynthesis.speak(u);
   }catch(e){}
