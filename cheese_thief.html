@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cheese Thief 🧀</title>
-<!-- Firebase via CDN (compat version — no modules needed) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
@@ -13,7 +12,7 @@
   body{background:var(--bg);color:var(--text);font-family:'Georgia',serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px}
   h1{font-size:2.2rem;color:var(--gold);text-shadow:0 2px 8px #0008}
   h2{font-size:1.4rem;color:var(--gold2);margin-bottom:12px}
-  h3{font-size:1.1rem;color:var(--cream);margin-bottom:8px}
+  h3{font-size:1.1rem;color:#f5e6c8;margin-bottom:8px}
   .screen{display:none;width:100%;max-width:520px;flex-direction:column;align-items:center;gap:16px}
   .screen.active{display:flex}
   .screen.gm-wide{max-width:780px}
@@ -30,6 +29,7 @@
   .btn-outline{background:transparent;color:var(--gold);border:2px solid var(--gold)}
   .btn-outline:hover:not(:disabled){background:var(--gold);color:#1a1208}
   .btn-purple{background:var(--purple);color:#fff}
+  .btn-red{background:var(--red);color:#fff}
   .room-code{font-size:3rem;font-weight:bold;letter-spacing:10px;color:var(--gold);text-shadow:0 0 20px #f5c84260}
   .player-list{list-style:none;width:100%}
   .player-list li{padding:10px 14px;margin:4px 0;background:var(--surface2);border-radius:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -43,11 +43,9 @@
   @keyframes roll{0%,100%{transform:rotate(0)}25%{transform:rotate(-15deg)}75%{transform:rotate(15deg)}}
   .role-card{border-radius:20px;padding:32px 24px;width:100%;text-align:center}
   .role-thief{background:linear-gradient(135deg,#2c0a0a,#5a1010);border:3px solid #c0392b}
-  .role-follower{background:linear-gradient(135deg,#2a1040,#4a1a70);border:3px solid #8e44ad}
   .role-villager{background:linear-gradient(135deg,#0a1f0a,#1a4a1a);border:3px solid #27ae60}
   .role-title{font-size:1.8rem;font-weight:bold;margin:8px 0}
   .role-thief .role-title{color:#ff6b6b}
-  .role-follower .role-title{color:#c39bd3}
   .role-villager .role-title{color:#82e0aa}
   .wake-badge{display:inline-block;background:var(--gold);color:#1a1208;font-weight:bold;font-size:1.1rem;padding:6px 16px;border-radius:20px;margin-top:10px}
   .night-clock{font-size:5rem;font-weight:bold;color:var(--gold);text-shadow:0 0 30px #f5c84280;line-height:1}
@@ -62,6 +60,8 @@
   .vote-btn:hover{border-color:var(--gold2)}
   .vote-btn.selected{border-color:var(--gold);background:#f5c84220;color:var(--gold);font-weight:bold}
   .vote-btn:disabled{opacity:.5;cursor:not-allowed}
+  .follower-btn{padding:16px 8px;border-radius:12px;border:2px solid var(--purple);background:#2a1040;color:#c39bd3;font-size:1rem;font-family:inherit;cursor:pointer;font-weight:bold;width:100%;margin:6px 0}
+  .follower-btn:active{transform:scale(0.96)}
   .result-bar-wrap{width:100%;margin:6px 0}
   .result-bar-label{display:flex;justify-content:space-between;font-size:.9rem;margin-bottom:4px}
   .result-bar{height:22px;background:var(--surface2);border-radius:6px;overflow:hidden}
@@ -78,7 +78,6 @@
   .dot-green{background:var(--green)}.dot-wait{background:var(--muted)}
   .interval-row{display:flex;align-items:center;gap:10px;width:100%}
   .interval-row label{flex:1;font-size:.95rem}
-  .interval-row select{flex:0 0 130px;width:130px}
   .spinner{display:inline-block;width:16px;height:16px;border:3px solid #f5c84240;border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
   @keyframes spin{to{transform:rotate(360deg)}}
   .gm-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%}
@@ -130,7 +129,7 @@
 
 <!-- GM LOBBY -->
 <div class="screen gm-wide" id="s-gm-lobby">
-  <div style="text-align:center"><span class="gm-phase phase-lobby">🎮 GM VIEW — LOBBY</span><h2>Share this code with your players</h2><div class="room-code" id="gm-display-code">----</div><p class="muted" style="margin-top:4px">Players open this page on their device and click "Join as Player"</p></div>
+  <div style="text-align:center"><span class="gm-phase phase-lobby">🎮 GM VIEW — LOBBY</span><h2>Share this code with your players</h2><div class="room-code" id="gm-display-code">----</div><p class="muted" style="margin-top:4px">Players open this page and click "Join as Player"</p></div>
   <div class="gm-grid">
     <div class="card gm"><h3>Players (<span id="gm-player-count">0</span>/8)</h3><ul class="player-list" id="gm-lobby-list"></ul></div>
     <div class="card" style="display:flex;flex-direction:column;gap:12px">
@@ -145,12 +144,9 @@
 
 <!-- GM WAIT -->
 <div class="screen gm-wide" id="s-gm-wait">
-  <span class="gm-phase phase-dice">🎲 GM VIEW — PLAYERS GETTING ROLES</span>
+  <span class="gm-phase phase-night">🎲 GM VIEW — PLAYERS GETTING ROLES</span>
   <div class="gm-grid">
-    <div class="card gm">
-      <h3>Ready status</h3>
-      <ul class="player-list" id="gm-ready-list"></ul>
-    </div>
+    <div class="card gm"><h3>Ready status</h3><ul class="player-list" id="gm-ready-list"></ul></div>
     <div class="card" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
       <p style="font-size:.95rem;line-height:1.6">Wait for all players to confirm their role, then begin the night phase.</p>
       <button class="btn btn-gold" id="gm-begin-night-btn" onclick="beginNight()" disabled>Begin Night Phase 🌙</button>
@@ -219,14 +215,28 @@
 <!-- PLAYER NIGHT -->
 <div class="screen" id="s-night">
   <div style="text-align:center"><div class="emoji-big">🌙</div><h2>Night Falls…</h2><p class="muted">Watch your screen quietly.</p></div>
-  <div class="card glow" style="text-align:center"><p class="muted" style="margin-bottom:6px">Current time</p><div class="night-clock" id="night-clock">—</div><div class="night-msg" id="night-msg" style="margin-top:12px">...</div><div class="progress-bar" style="margin-top:12px"><div class="progress-fill" id="night-progress" style="width:100%"></div></div></div>
+  <div class="card glow" style="text-align:center">
+    <p class="muted" style="margin-bottom:6px">Current time</p>
+    <div class="night-clock" id="night-clock">—</div>
+    <div class="night-msg" id="night-msg" style="margin-top:12px">...</div>
+    <div class="progress-bar" style="margin-top:12px"><div class="progress-fill" id="night-progress" style="width:100%"></div></div>
+  </div>
+</div>
+
+<!-- THIEF PICK FOLLOWER -->
+<div class="screen" id="s-pick-follower">
+  <div style="text-align:center"><div class="emoji-big">👀</div><h2>Pick Your Follower!</h2><p class="muted">Someone woke up at the same time as you.<br>Point at them — then tap their name.</p></div>
+  <div class="card glow">
+    <div id="follower-options"></div>
+    <p class="tip" style="margin-top:12px">Your choice is secret — only you will know.</p>
+  </div>
 </div>
 
 <!-- PLAYER DAY -->
 <div class="screen" id="s-day">
   <div style="text-align:center"><div class="emoji-big">☀️</div><h2>Good Morning!</h2><p class="muted">Discuss who you think the Cheese Thief is…</p></div>
   <div class="card" style="text-align:center"><p class="muted tip"><span class="spinner"></span>Waiting for host to start voting…</p></div>
-  <div class="card"><h3>Your Role Reminder</h3><div style="display:flex;align-items:center;gap:12px"><div id="day-role-emoji" style="width:48px;height:48px;overflow:hidden;flex-shrink:0"></div><div style="text-align:left"><div id="day-role-title" style="font-weight:bold;color:var(--gold)"></div><div class="wake-badge" id="day-wake" style="font-size:.8rem;padding:3px 10px;margin-top:4px"></div></div></div></div>
+  <div class="card"><h3>Your Role Reminder</h3><div style="display:flex;align-items:center;gap:12px"><div id="day-role-emoji" style="font-size:2rem;flex-shrink:0"></div><div style="text-align:left"><div id="day-role-title" style="font-weight:bold;color:var(--gold)"></div><div class="wake-badge" id="day-wake" style="font-size:.8rem;padding:3px 10px;margin-top:4px"></div></div></div></div>
 </div>
 
 <!-- PLAYER VOTE -->
@@ -245,52 +255,30 @@
 </div>
 
 <script>
-// ── Firebase init ─────────────────────────────────────────────────────────
-var firebaseConfig = {
-  apiKey: "AIzaSyCS0X2cNcC1YOLEaXn3Nh-1s7DtRXZ43ZY",
-  authDomain: "game-test-b98d3.firebaseapp.com",
-  databaseURL: "https://game-test-b98d3-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "game-test-b98d3",
-  storageBucket: "game-test-b98d3.firebasestorage.app",
-  messagingSenderId: "636878489690",
-  appId: "1:636878489690:web:4bff67895ba313012a7063"
-};
+// ── Firebase ───────────────────────────────────────────────────────────────
+var firebaseConfig={apiKey:"AIzaSyCS0X2cNcC1YOLEaXn3Nh-1s7DtRXZ43ZY",authDomain:"game-test-b98d3.firebaseapp.com",databaseURL:"https://game-test-b98d3-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"game-test-b98d3",storageBucket:"game-test-b98d3.firebasestorage.app",messagingSenderId:"636878489690",appId:"1:636878489690:web:4bff67895ba313012a7063"};
 firebase.initializeApp(firebaseConfig);
-var db = firebase.database();
+var db=firebase.database();
 
-// ── Mouse SVGs ────────────────────────────────────────────────────────────
-const MOUSE_SVG={
+// ── Mouse SVGs ─────────────────────────────────────────────────────────────
+var MOUSE_SVG={
   thief:`<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" width="120" height="120"><ellipse cx="60" cy="108" rx="28" ry="6" fill="#00000030"/><path d="M72 95 Q100 105 108 88 Q114 74 98 70" fill="none" stroke="#c0785a" stroke-width="3.5" stroke-linecap="round"/><ellipse cx="58" cy="85" rx="26" ry="22" fill="#8B4513"/><path d="M34 78 Q36 105 58 108 Q80 105 82 78 Q70 90 58 90 Q46 90 34 78Z" fill="#1a0a2e"/><circle cx="58" cy="58" r="24" fill="#8B4513"/><circle cx="38" cy="40" r="11" fill="#8B4513"/><circle cx="38" cy="40" r="7" fill="#c0785a"/><circle cx="78" cy="40" r="11" fill="#8B4513"/><circle cx="78" cy="40" r="7" fill="#c0785a"/><rect x="42" y="52" width="32" height="11" rx="5" fill="#1a0a2e"/><circle cx="51" cy="57" r="4.5" fill="#fff"/><circle cx="65" cy="57" r="4.5" fill="#fff"/><circle cx="53" cy="57" r="2.8" fill="#1a0a2e"/><circle cx="67" cy="57" r="2.8" fill="#1a0a2e"/><circle cx="54" cy="56" r="1" fill="#fff"/><circle cx="68" cy="56" r="1" fill="#fff"/><path d="M50 68 Q58 74 68 67" fill="none" stroke="#c0785a" stroke-width="2" stroke-linecap="round"/><ellipse cx="58" cy="64" rx="4" ry="3" fill="#c0785a"/><line x1="38" y1="63" x2="54" y2="65" stroke="#e8c8a0" stroke-width="1.2" stroke-linecap="round"/><line x1="36" y1="67" x2="53" y2="67" stroke="#e8c8a0" stroke-width="1.2" stroke-linecap="round"/><line x1="62" y1="65" x2="78" y2="63" stroke="#e8c8a0" stroke-width="1.2" stroke-linecap="round"/><line x1="63" y1="67" x2="80" y2="67" stroke="#e8c8a0" stroke-width="1.2" stroke-linecap="round"/><rect x="78" y="88" width="13" height="11" rx="2" fill="#f5c842"/><circle cx="82" cy="92" r="1.5" fill="#c8a020"/><circle cx="86" cy="95" r="1.2" fill="#c8a020"/><circle cx="89" cy="91" r="1" fill="#c8a020"/></svg>`,
-  follower:`<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" width="120" height="120"><ellipse cx="60" cy="108" rx="28" ry="6" fill="#00000030"/><path d="M72 96 Q98 106 104 90 Q108 76 94 72" fill="none" stroke="#909090" stroke-width="3.5" stroke-linecap="round"/><ellipse cx="58" cy="85" rx="26" ry="22" fill="#888"/><circle cx="58" cy="58" r="24" fill="#888"/><circle cx="37" cy="40" r="12" fill="#888"/><circle cx="37" cy="40" r="8" fill="#b0a0b8"/><circle cx="79" cy="40" r="12" fill="#888"/><circle cx="79" cy="40" r="8" fill="#b0a0b8"/><circle cx="44" cy="64" r="7" fill="#c090c0" opacity="0.45"/><circle cx="72" cy="64" r="7" fill="#c090c0" opacity="0.45"/><circle cx="50" cy="54" r="6" fill="#fff"/><circle cx="66" cy="54" r="6" fill="#fff"/><circle cx="51" cy="55" r="3.8" fill="#5a2080"/><circle cx="67" cy="55" r="3.8" fill="#5a2080"/><circle cx="52" cy="53" r="1.5" fill="#fff"/><circle cx="68" cy="53" r="1.5" fill="#fff"/><path d="M48 67 Q58 75 68 67" fill="none" stroke="#a080a0" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="58" cy="63" rx="4" ry="3" fill="#b070b0"/><line x1="36" y1="61" x2="53" y2="63" stroke="#b0b0b0" stroke-width="1.3" stroke-linecap="round"/><line x1="34" y1="65" x2="52" y2="65" stroke="#b0b0b0" stroke-width="1.3" stroke-linecap="round"/><line x1="63" y1="63" x2="80" y2="61" stroke="#b0b0b0" stroke-width="1.3" stroke-linecap="round"/><line x1="64" y1="65" x2="82" y2="65" stroke="#b0b0b0" stroke-width="1.3" stroke-linecap="round"/><ellipse cx="34" cy="88" rx="8" ry="6" fill="#888" transform="rotate(-20,34,88)"/><ellipse cx="82" cy="88" rx="8" ry="6" fill="#888" transform="rotate(20,82,88)"/></svg>`,
   villager:`<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" width="120" height="120"><ellipse cx="60" cy="108" rx="28" ry="6" fill="#00000030"/><path d="M72 96 Q98 106 104 90 Q108 76 94 72" fill="none" stroke="#d0c0c0" stroke-width="3.5" stroke-linecap="round"/><ellipse cx="58" cy="85" rx="26" ry="22" fill="#f0eaea"/><circle cx="58" cy="58" r="24" fill="#f0eaea"/><circle cx="37" cy="40" r="12" fill="#f0eaea"/><circle cx="37" cy="40" r="8" fill="#f4c4c4"/><circle cx="79" cy="40" r="12" fill="#f0eaea"/><circle cx="79" cy="40" r="8" fill="#f4c4c4"/><circle cx="44" cy="64" r="7" fill="#f4a0a0" opacity="0.55"/><circle cx="72" cy="64" r="7" fill="#f4a0a0" opacity="0.55"/><circle cx="50" cy="54" r="6" fill="#fff"/><circle cx="66" cy="54" r="6" fill="#fff"/><circle cx="51" cy="55" r="3.8" fill="#c0404a"/><circle cx="67" cy="55" r="3.8" fill="#c0404a"/><circle cx="52" cy="53" r="1.5" fill="#fff"/><circle cx="68" cy="53" r="1.5" fill="#fff"/><path d="M48 67 Q58 75 68 67" fill="none" stroke="#d0a0a0" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="58" cy="63" rx="4" ry="3" fill="#e08090"/><line x1="36" y1="61" x2="53" y2="63" stroke="#c8c0c0" stroke-width="1.3" stroke-linecap="round"/><line x1="34" y1="65" x2="52" y2="65" stroke="#c8c0c0" stroke-width="1.3" stroke-linecap="round"/><line x1="63" y1="63" x2="80" y2="61" stroke="#c8c0c0" stroke-width="1.3" stroke-linecap="round"/><line x1="64" y1="65" x2="82" y2="65" stroke="#c8c0c0" stroke-width="1.3" stroke-linecap="round"/><ellipse cx="34" cy="88" rx="8" ry="6" fill="#f0eaea" transform="rotate(-20,34,88)"/><ellipse cx="82" cy="88" rx="8" ry="6" fill="#f0eaea" transform="rotate(20,82,88)"/></svg>`
 };
 
 // ── Audio / Speech ─────────────────────────────────────────────────────────
 var audioCtx=null;
-function getAudio(){ if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
-function playTone(freq,dur,type,vol){
-  type=type||'sine';vol=vol||0.25;
-  try{ var ctx=getAudio(),osc=ctx.createOscillator(),gain=ctx.createGain(); osc.connect(gain);gain.connect(ctx.destination); osc.type=type;osc.frequency.value=freq; gain.gain.setValueAtTime(vol,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur); osc.start();osc.stop(ctx.currentTime+dur); }catch(e){}
-}
-function playChime(freqs,gap){ gap=gap||120; freqs.forEach(function(f,i){ setTimeout(function(){ playTone(f,0.4,'sine',0.2); },i*gap); }); }
 var HOUR_PHRASES=["Ooh, it's 1am! The night has just begun!","2am! The village is fast asleep!","3am! Shh… quiet as a mouse!","4am! Getting closer to dawn!","5am! Almost morning!","6am! Last one awake!"];
-
-function speak(text,fast){
-  try{
-    window.speechSynthesis.cancel();
-    var u=new SpeechSynthesisUtterance(text);
-    u.rate=0.6;
-    u.pitch=1.6;
-    u.volume=1;
-    window.speechSynthesis.speak(u);
-  }catch(e){}
-}
+function getAudio(){ if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
+function playTone(freq,dur,type,vol){ type=type||'sine';vol=vol||0.25; try{ var ctx=getAudio(),osc=ctx.createOscillator(),gain=ctx.createGain(); osc.connect(gain);gain.connect(ctx.destination); osc.type=type;osc.frequency.value=freq; gain.gain.setValueAtTime(vol,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur); osc.start();osc.stop(ctx.currentTime+dur); }catch(e){} }
+function playChime(freqs,gap){ gap=gap||120; freqs.forEach(function(f,i){ setTimeout(function(){ playTone(f,0.4,'sine',0.2); },i*gap); }); }
+function speak(text){ try{ window.speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(text); u.rate=0.6;u.pitch=1.6;u.volume=1; window.speechSynthesis.speak(u); }catch(e){} }
 
 // ── State ──────────────────────────────────────────────────────────────────
 var myId=null,myName=null,roomCode=null,isGM=false;
 var myRole=null,myWakeTime=null,selectedVote=null;
 var nightInterval=null,lastSpokenHour=-1,diceRolled=false,lastPhase=null;
-var roomListener=null;
+var roomListener=null,currentRoom=null;
 var HOURS=['1am','2am','3am','4am','5am','6am'];
 var FACES=['⚀','⚁','⚂','⚃','⚄','⚅'];
 
@@ -299,8 +287,6 @@ function uid(){ return Math.random().toString(36).slice(2,10); }
 function showScreen(id){ document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');}); document.getElementById(id).classList.add('active'); }
 function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},2500); }
 function genCode(){ var ch='ABCDEFGHJKLMNPQRSTUVWXYZ'; return Array.from({length:4},function(){return ch[Math.floor(Math.random()*ch.length)];}).join(''); }
-
-// ── Firebase helpers ───────────────────────────────────────────────────────
 function roomRef(){ return db.ref('rooms/'+roomCode); }
 
 // ── Create Room ────────────────────────────────────────────────────────────
@@ -308,8 +294,8 @@ function createRoom(){
   var name=document.getElementById('host-name').value.trim();
   if(!name){toast('Enter your name!');return;}
   var interval=parseInt(document.getElementById('interval-select').value);
-  myId='GM_'+uid(); myName=name; isGM=true; roomCode=genCode();
-  var room={code:roomCode,host:myId,interval:interval,phase:'lobby',players:{},votes:{},roles:{},wakeTimes:{},nightStart:0,created:Date.now()};
+  myId='GM_'+uid();myName=name;isGM=true;roomCode=genCode();
+  var room={code:roomCode,host:myId,interval:interval,phase:'lobby',players:{},votes:{},roles:{},wakeTimes:{},follower:null,nightStart:0,created:Date.now()};
   roomRef().set(room).then(function(){
     document.getElementById('gm-display-code').textContent=roomCode;
     document.getElementById('gm-interval').value=interval;
@@ -331,7 +317,7 @@ function joinRoom(){
     if(room.phase!=='lobby'){toast('Game already started!');return;}
     var players=room.players||{};
     if(Object.keys(players).length>=8){toast('Room is full!');return;}
-    myId=uid(); myName=name; isGM=false;
+    myId=uid();myName=name;isGM=false;
     players[myId]={id:myId,name:name,ready:false,voted:false};
     db.ref('rooms/'+roomCode+'/players').set(players).then(function(){
       showScreen('s-wait-night');
@@ -350,27 +336,20 @@ function startListening(){
 }
 
 function handleRoom(room){
+  currentRoom=room;
   var phase=room.phase;
   var cur=document.querySelector('.screen.active')?document.querySelector('.screen.active').id:'';
 
   if(phase==='lobby'&&isGM) renderGMLobby(room);
 
   if(phase==='dice'){
-    if(!isGM){
-      myRole=room.roles[myId]; myWakeTime=room.wakeTimes[myId];
-      if(lastPhase!=='dice') showDiceScreen();
-    }
-    if(isGM){
-      if(lastPhase!=='dice') showScreen('s-gm-wait');
-      renderGMWait(room);
-    }
+    if(!isGM){ myRole=room.roles[myId]; myWakeTime=room.wakeTimes[myId]; if(lastPhase!=='dice') showDiceScreen(); }
+    if(isGM){ if(lastPhase!=='dice') showScreen('s-gm-wait'); renderGMWait(room); }
   }
 
   if(phase==='night'){
     if(lastPhase!=='night'){ lastSpokenHour=-1; if(isGM) showScreen('s-gm-night'); else showScreen('s-night'); }
-    if(!nightInterval) nightInterval=setInterval(function(){ tickNight(room); },500);
-    // update room ref for tick
-    currentRoom=room;
+    if(!nightInterval) nightInterval=setInterval(function(){ tickNight(); },500);
   }
 
   if(phase==='day'&&lastPhase!=='day'){
@@ -387,21 +366,13 @@ function handleRoom(room){
 
   if(phase==='dice'&&!isGM&&(cur==='s-wait-night'||cur==='s-role')) renderReadyList(room);
 
+  // Thief pick follower — show picker if others awake at same hour during night
+  if(phase==='night'&&!isGM&&myRole==='thief'&&cur==='s-night'){
+    checkFollowerPick(room);
+  }
+
   lastPhase=phase;
 }
-
-// ── GM Wait ────────────────────────────────────────────────────────────────
-function renderGMWait(room){
-  var ps=Object.values(room.players||{});
-  document.getElementById('gm-ready-list').innerHTML=ps.map(function(p){
-    return '<li><span class="status-dot '+(p.ready?'dot-green':'dot-wait')+'"></span>'+p.name+' <span class="badge '+(p.ready?'badge-ready':'badge-wait')+'">'+(p.ready?'Ready':'Waiting')+'</span></li>';
-  }).join('');
-  var allReady=ps.length>0&&ps.every(function(p){return p.ready;});
-  var btn=document.getElementById('gm-begin-night-btn');
-  if(btn) btn.disabled=!allReady;
-}
-
-function beginNight(){ roomRef().update({phase:'night',nightStart:Date.now()}); }
 
 // ── GM Lobby ───────────────────────────────────────────────────────────────
 function renderGMLobby(room){
@@ -413,13 +384,21 @@ function renderGMLobby(room){
   var btn=document.getElementById('gm-start-btn');
   var tip=document.getElementById('gm-start-tip');
   btn.disabled=ps.length<4;
-  tip.textContent=ps.length<4?'Need '+(4-ps.length)+' more player'+(4-ps.length>1?'s':'')+'…':ps.length+' players ready — good to go!';
+  tip.textContent=ps.length<4?'Need '+(4-ps.length)+' more player'+(4-ps.length>1?'s':'')+'…':ps.length+' players ready!';
 }
+function updateInterval(){ var v=parseInt(document.getElementById('gm-interval').value); db.ref('rooms/'+roomCode+'/interval').set(v); }
 
-function updateInterval(){
-  var v=parseInt(document.getElementById('gm-interval').value);
-  db.ref('rooms/'+roomCode+'/interval').set(v);
+// ── GM Wait ────────────────────────────────────────────────────────────────
+function renderGMWait(room){
+  var ps=Object.values(room.players||{});
+  document.getElementById('gm-ready-list').innerHTML=ps.map(function(p){
+    return '<li><span class="status-dot '+(p.ready?'dot-green':'dot-wait')+'"></span>'+p.name+' <span class="badge '+(p.ready?'badge-ready':'badge-wait')+'">'+(p.ready?'Ready':'Waiting')+'</span></li>';
+  }).join('');
+  var allReady=ps.length>0&&ps.every(function(p){return p.ready;});
+  var btn=document.getElementById('gm-begin-night-btn');
+  if(btn) btn.disabled=!allReady;
 }
+function beginNight(){ roomRef().update({phase:'night',nightStart:Date.now()}); }
 
 // ── Start Game ─────────────────────────────────────────────────────────────
 function startGame(){
@@ -427,15 +406,15 @@ function startGame(){
     var room=snap.val();
     var ps=Object.values(room.players||{});
     if(ps.length<4){toast('Need at least 4 players!');return;}
-    var hasFollower=ps.length>=5;
+    // Only 2 roles: 1 thief, rest villagers
     var shuffled=ps.slice().sort(function(){return Math.random()-.5;});
     var roles={};
     roles[shuffled[0].id]='thief';
-    if(hasFollower) roles[shuffled[1].id]='follower';
-    ps.forEach(function(p){if(!roles[p.id]) roles[p.id]='villager';});
+    for(var i=1;i<ps.length;i++) roles[shuffled[i].id]='villager';
+    // Random wake times 1-6
     var wakeTimes={};
     ps.forEach(function(p){wakeTimes[p.id]=Math.ceil(Math.random()*6);});
-    roomRef().update({roles:roles,wakeTimes:wakeTimes,phase:'dice'});
+    roomRef().update({roles:roles,wakeTimes:wakeTimes,phase:'dice',follower:null});
   });
 }
 
@@ -463,8 +442,6 @@ function rollDice(){
     if(t>12){
       clearInterval(iv);
       d1.classList.remove('rolling');d2.classList.remove('rolling');
-      d1.textContent=FACES[Math.floor(Math.random()*6)];
-      d2.textContent=FACES[Math.floor(Math.random()*6)];
       playChime([523,659,784],100);
       document.getElementById('wake-time-display').textContent=HOURS[myWakeTime-1];
       document.getElementById('dice-result').style.display='block';
@@ -475,9 +452,8 @@ function rollDice(){
 }
 function showRoleCard(){
   var map={
-    thief:{title:'Cheese Thief',cls:'role-thief',desc:'You sneak out every night to steal the cheese. Avoid suspicion and let someone else take the blame.'},
-    follower:{title:'Follower',cls:'role-follower',desc:'You secretly help the Thief. Give a thumbs-up when you both wake — only the Thief will understand. Stay hidden.'},
-    villager:{title:'Villager Mouse',cls:'role-villager',desc:'Protect the cheese! Watch carefully during the night and use your wits during the day to find the Thief.'}
+    thief:{title:'Cheese Thief',cls:'role-thief',desc:'You sneak out every night to steal the cheese. Stay hidden and avoid suspicion!'},
+    villager:{title:'Villager Mouse',cls:'role-villager',desc:'Protect the cheese! Find the Thief before it\'s too late. Watch carefully during the night!'}
   };
   var r=map[myRole];
   document.getElementById('role-card').className='role-card '+r.cls;
@@ -499,13 +475,10 @@ function renderReadyList(room){
 }
 
 // ── Night ──────────────────────────────────────────────────────────────────
-var currentRoom=null;
-function tickNight(room){
-  if(room) currentRoom=room;
-  if(!currentRoom) return;
-  var r=currentRoom;
-  var interval=(r.interval||15)*1000;
-  var elapsed=Date.now()-r.nightStart;
+function tickNight(){
+  var room=currentRoom; if(!room||!room.nightStart) return;
+  var interval=(room.interval||10)*1000;
+  var elapsed=Date.now()-room.nightStart;
   var currentHour=Math.floor(elapsed/interval);
   var progress=1-((elapsed%interval)/interval);
 
@@ -514,17 +487,13 @@ function tickNight(room){
     var gmClock=document.getElementById('gm-clock');
     if(gmProg) gmProg.style.width=(progress*100)+'%';
     if(gmClock) gmClock.textContent=currentHour>=6?'🌅':(HOURS[currentHour]||'—');
-    var ps=Object.values(r.players||{});
+    var ps=Object.values(room.players||{});
     var nl=document.getElementById('gm-night-list');
     if(nl) nl.innerHTML=ps.map(function(p){return '<li>🐭 '+p.name+'</li>';}).join('');
     if(currentHour!==lastSpokenHour){
       lastSpokenHour=currentHour;
-      if(currentHour>=6){
-        speak('Good morning everyone! Rise and shine!',true);
-        playChime([523,659,784,1047],160);
-        setTimeout(function(){ roomRef().update({phase:'day'}); }, 3000);
-      }
-      else speak(HOUR_PHRASES[currentHour],true);
+      if(currentHour>=6){ speak('Good morning everyone! Rise and shine!'); playChime([523,659,784,1047],160); setTimeout(function(){ roomRef().update({phase:'day'}); },3000); }
+      else speak(HOUR_PHRASES[currentHour]);
     }
   } else {
     var pProg=document.getElementById('night-progress');
@@ -543,15 +512,47 @@ function tickNight(room){
   }
 }
 
+// ── Follower Pick ──────────────────────────────────────────────────────────
+var followerPickShown=false;
+function checkFollowerPick(room){
+  if(followerPickShown) return;
+  if(room.follower) return; // already picked
+  var interval=(room.interval||10)*1000;
+  var elapsed=Date.now()-room.nightStart;
+  var currentHour=Math.floor(elapsed/interval);
+  var myHour=myWakeTime-1;
+  if(currentHour!==myHour) return; // not my hour yet
+  // Find other players awake at same time (same wake time), excluding thief
+  var ps=Object.values(room.players||{});
+  var othersAwake=ps.filter(function(p){
+    return p.id!==myId && room.wakeTimes[p.id]===(currentHour+1);
+  });
+  if(othersAwake.length===0) return; // no one else awake
+  // Show picker!
+  followerPickShown=true;
+  var opts=document.getElementById('follower-options');
+  opts.innerHTML=othersAwake.map(function(p){
+    return '<button class="follower-btn" onclick="pickFollower(\''+p.id+'\')">👉 '+p.name+'</button>';
+  }).join('');
+  showScreen('s-pick-follower');
+}
+
+function pickFollower(id){
+  db.ref('rooms/'+roomCode+'/follower').set(id);
+  showScreen('s-night');
+}
+
 // ── Day ────────────────────────────────────────────────────────────────────
 function showDayPhase(room){
+  followerPickShown=false;
   if(isGM){
     var ps=Object.values(room.players||{});
     document.getElementById('gm-day-list').innerHTML=ps.map(function(p){return '<li>🐭 '+p.name+'</li>';}).join('');
     showScreen('s-gm-day');
   } else {
-    var tl={thief:'Cheese Thief',follower:'Follower',villager:'Villager Mouse'};
-    document.getElementById('day-role-emoji').innerHTML='<div style="width:48px;height:48px;overflow:hidden">'+MOUSE_SVG[myRole]+'</div>';
+    var em={thief:'🐀',villager:'🐭'};
+    var tl={thief:'Cheese Thief',villager:'Villager Mouse'};
+    document.getElementById('day-role-emoji').textContent=em[myRole];
     document.getElementById('day-role-title').textContent=tl[myRole];
     document.getElementById('day-wake').textContent='⏰ '+HOURS[myWakeTime-1];
     showScreen('s-day');
@@ -605,6 +606,7 @@ function showResults(room){
   var sorted=ps.slice().sort(function(a,b){return tally[b.id]-tally[a.id];});
   var top=tally[sorted[0].id];
   var thiefId=Object.keys(room.roles||{}).find(function(id){return room.roles[id]==='thief';});
+  var followerId=room.follower||null;
   var topPlayers=sorted.filter(function(p){return tally[p.id]===top;});
   var villagerWin=topPlayers.length===1&&topPlayers[0].id===thiefId;
   if(villagerWin){playChime([523,659,784,1047,1319],130);if(isGM)speak('The Cheese Thief has been caught! Villagers win!');}
@@ -614,10 +616,16 @@ function showResults(room){
   var barsHTML=sorted.map(function(p,i){
     return '<div class="result-bar-wrap"><div class="result-bar-label"><span>🐭 '+p.name+'</span><span>'+tally[p.id]+' vote'+(tally[p.id]!==1?'s':'')+'</span></div><div class="result-bar"><div class="result-bar-fill" style="width:'+(tally[p.id]/maxV*100)+'%;background:'+colors[i%colors.length]+'"></div></div></div>';
   }).join('');
-  var rLabel={thief:'🐀 Cheese Thief',follower:'🐁 Follower',villager:'🐭 Villager'};
+  // Role reveal — show follower if one was picked
   var revealHTML=ps.map(function(p){
-    return '<li>'+rLabel[room.roles[p.id]]+' — <strong>'+p.name+'</strong> <span class="muted">(wake: '+HOURS[room.wakeTimes[p.id]-1]+')</span></li>';
+    var role=room.roles[p.id];
+    var isFollower=followerId&&p.id===followerId;
+    var label=isFollower?'🐁 Follower':(role==='thief'?'🐀 Cheese Thief':'🐭 Villager');
+    return '<li>'+label+' — <strong>'+p.name+'</strong> <span class="muted">(wake: '+HOURS[room.wakeTimes[p.id]-1]+')</span></li>';
   }).join('');
+  if(!followerId){
+    revealHTML+='<li style="color:var(--muted);font-style:italic;margin-top:8px">No Follower this round — the Thief woke up alone!</li>';
+  }
   if(isGM){
     document.getElementById('gm-result-emoji').textContent=villagerWin?'🎉':'🧀';
     var wb=document.getElementById('gm-winner-banner');
@@ -645,7 +653,7 @@ function playAgain(){
   if(isGM) roomRef().remove();
   roomCode=null;myId=null;myName=null;isGM=false;
   myRole=null;myWakeTime=null;selectedVote=null;
-  lastSpokenHour=-1;diceRolled=false;lastPhase=null;currentRoom=null;
+  lastSpokenHour=-1;diceRolled=false;lastPhase=null;currentRoom=null;followerPickShown=false;
   showScreen('s-home');
 }
 
